@@ -10,9 +10,10 @@ from bibtexparser.model import Field
 
 class BibTexCleaner:
     
-    def __init__(self, file: str, use_short: bool = False):
+    def __init__(self, file: str, use_short: bool = False, replace_keys: bool = False):
         self.file = file
         self.use_short = use_short
+        self.replace_keys = replace_keys
         
         self._setup_logger()
         self._read()
@@ -80,15 +81,16 @@ class BibTexCleaner:
                 self.logger.info(f"\tThe title is not in the right format, it is expected to be equivalent to {self._get_proceedings_template()}")
                 
             # Rephrase key to: <conference abbreviation><year>
-            match = re.search(r"\{[a-zA-Z]+\}'\d{2}", entry.fields_dict['title'].value)
-            if not match:
-                self.logger.info("\tThe title is not in the right format, it is expected to contain '<ConfAbbrev>'<YearAbbrev>'")
-            else:
-                correct_key = re.sub(r'[^a-zA-Z0-9]', '', match.group(0)).lower()
-                if correct_key != entry.key:
-                    self.proceedings_key_updates[entry.key] = correct_key
-                    entry.key = correct_key
-                    self.logger.info(f"\tRephrased key: {entry.key}")
+            if self.replace_keys:
+                match = re.search(r"\{[a-zA-Z-]+\}(?:/\{[a-zA-Z-]+\})?'\d{2}", entry.fields_dict['title'].value)
+                if not match:
+                    self.logger.info("\tThe title is not in the right format, it is expected to contain `<ConfAbbrev>'<YearAbbrev>`")
+                else:
+                    correct_key = re.sub(r'[^a-zA-Z0-9]', '', match.group(0)).lower()
+                    if correct_key != entry.key:
+                        self.proceedings_key_updates[entry.key] = correct_key
+                        entry.key = correct_key
+                        self.logger.info(f"\tRephrased key: {entry.key}")
             
             # Remove all fields except the chosen ones, and reorder the fields according to the ordering of the chosen fields
             chosen_fields = ['title', 'booktitle', 'year', 'notes']
@@ -100,7 +102,7 @@ class BibTexCleaner:
             self.logger.info("\tDone.")
             
     def _clean_entries(self):
-        for entry in [entry for entry in self.library.entries if entry.entry_type != 'proceedings' ]:
+        for e, entry in enumerate([entry for entry in self.library.entries if entry.entry_type != 'proceedings']):
             self.logger.info(f"\nChecking entry with key '{entry.key}':")
             
             # Rephrase title to remove linebreaks
@@ -111,7 +113,7 @@ class BibTexCleaner:
             # - to surround words with {} if other letters are capitalized than the first one
             title = []
             for w, word in enumerate(entry.fields_dict['title'].value.split(' ')):
-                if word[0] != '{' and word[-1] != '}':
+                if '{' not in word and '}' not in word:
                     if word[1:].lower() != word[1:] and '-' not in word:
                         if word[-1] == ':':
                             title.append("{" + word[:-1] + "}" + word[-1])
@@ -130,22 +132,22 @@ class BibTexCleaner:
             for people in ['editor', 'author']:
                 if people in entry.fields_dict and re.match(r'[A-Z]\.\s[A-Za-z-]+(?:\sand\s[A-Z]\.\s[A-Za-z])*', entry.fields_dict[people].value) != entry.fields_dict[people].value:
                     original_peoples = list(person for person in re.sub(r"\s+", ' ', entry.fields_dict[people].value.replace('\n', '')).split(' and '))
-                    peoples = []
-                    
-                    for original_person in original_peoples:
-                        if ',' in original_person:
-                            original_person = original_person.split(',')
-                            original_person = [original_person[-1].strip(), original_person[0].strip()]
-                        else:
-                            original_person = original_person.split(' ')
-                            for n, name in enumerate(original_person):
-                                if n>0 and '.' in name:
-                                    original_person[n] = ''
-                            original_person = [x.strip() for x in original_person if x != '']
-                        peoples.append(' '.join([f"{original_person[0][0]}.",] + original_person[1:]))
-                        
-                    entry.fields_dict[people].value = ' and '.join(peoples)
-                    self.logger.info(f"\tRephrased {people}: {entry.fields_dict[people].value}")
+                    if len(original_peoples) > 1 or len(original_peoples[0].split(' ')) > 1:
+                        peoples = []
+                        for original_person in original_peoples:
+                            if ',' in original_person:
+                                original_person = original_person.split(',')
+                                original_person = [original_person[-1].strip(), original_person[0].strip()]
+                            else:
+                                original_person = original_person.split(' ')
+                                for n, name in enumerate(original_person):
+                                    if n>0 and '.' in name:
+                                        original_person[n] = ''
+                                original_person = [x.strip() for x in original_person if x != '']
+                            peoples.append(' '.join([f"{original_person[0][0]}.",] + original_person[1:]))
+                            
+                        entry.fields_dict[people].value = ' and '.join(peoples)
+                        self.logger.info(f"\tRephrased {people}: {entry.fields_dict[people].value}")
                 
             # Rephrase arXiv papers
             if 'journal' in entry.fields_dict and entry.fields_dict['journal'].value == 'CoRR':
@@ -181,51 +183,53 @@ class BibTexCleaner:
             first_author = peoples.split(' and ')[0].split(' ')[-1]
             
             # replace all letters from first_author that are none alphabetic
-            first_author = re.sub(r'[^a-zA-Z]', '', first_author)
-            
-            published = ''
-            if 'journal' in entry.fields_dict:
-                published = entry.fields_dict['journal'].value.split(':')[0] 
-            elif 'crossref' in entry.fields_dict:
-                published = entry.fields_dict['crossref'].value
-            else:
-                published = 'XXX'
-            published = re.sub(r'[^a-zA-Z]', '', published)
-            
-            year = ''
-            if 'crossref' in entry.fields_dict:
-                # Check if crossref has to be updated due to changed key of proceeding
-                if entry.fields_dict['crossref'].value in self.proceedings_key_updates:
-                    self.logger.info(f"\tCrossref has been updated from '{entry.fields_dict['crossref'].value}' to '{self.proceedings_key_updates[entry.fields_dict['crossref'].value]}' due to an update of the according proceedings key.")
-                    entry.fields_dict['crossref'].value = self.proceedings_key_updates[entry.fields_dict['crossref'].value]
+            if self.replace_keys:
+                first_author = re.sub(r'[^a-zA-Z]', '', first_author)
                 
-                # Check crossref exists
-                if entry.fields_dict['crossref'].value not in [proceeding.key for proceeding in self.proceedings]:
-                    self.logger.info(f"\tCrossref {entry.fields_dict['crossref'].value} not found in proceedings. Please add it according to the template:{self._get_proceedings_template()}")
-                year = entry.fields_dict['crossref'].value[-2:]
-            
-            else:
-                if 'year' in entry.fields_dict:
-                    year = entry.fields_dict['year'].value[-2:] 
+                published = ''
+                if 'journal' in entry.fields_dict:
+                    published = entry.fields_dict['journal'].value.split(':')[0] 
+                elif 'crossref' in entry.fields_dict:
+                    published = entry.fields_dict['crossref'].value
                 else:
-                    year = ''
-            
-            correct_key = f"{first_author}-{published}{year}".lower()
-            same_key = [entry.key for entry in self.library.entries if entry.key.startswith(correct_key)]
-            correct_key += string.ascii_lowercase[len(same_key)]
-            
-            if correct_key != entry.key:
-                entry.key = correct_key
-                self.logger.info(f"\tRephrased key: {entry.key}")
+                    published = 'XXX'
+                published = re.sub(r'[^a-zA-Z]', '', published)
+                
+                year = ''
+                if 'crossref' in entry.fields_dict:
+                    # Check if crossref has to be updated due to changed key of proceeding
+                    if entry.fields_dict['crossref'].value in self.proceedings_key_updates:
+                        self.logger.info(f"\tCrossref has been updated from '{entry.fields_dict['crossref'].value}' to '{self.proceedings_key_updates[entry.fields_dict['crossref'].value]}' due to an update of the according proceedings key.")
+                        entry.fields_dict['crossref'].value = self.proceedings_key_updates[entry.fields_dict['crossref'].value]
+                    
+                    # Check crossref exists
+                    if entry.fields_dict['crossref'].value not in [proceeding.key for proceeding in self.proceedings]:
+                        self.logger.info(f"\tCrossref {entry.fields_dict['crossref'].value} not found in proceedings. Please add it according to the template:{self._get_proceedings_template()}")
+                    year = entry.fields_dict['crossref'].value[-2:]
+                
+                else:
+                    if 'year' in entry.fields_dict:
+                        year = entry.fields_dict['year'].value[-2:] 
+                    else:
+                        year = ''
+                
+                correct_key = f"{first_author}-{published}{year}".lower()
+                
+                if not entry.key.startswith(correct_key):
+                    same_keys = sorted([i.key for i in self.library.entries if i.key.startswith(correct_key) and i.key != entry.key])
+                    correct_key += chr(ord(same_keys[-1][-1])+1) if len(same_keys)>0 else 'a'
+                
+                    entry.key = correct_key
+                    self.logger.info(f"\tRephrased key: {entry.key}")
             
             # Check if proceeding has been extracted and used via crossref
             if entry.entry_type == 'inproceedings' and 'booktitle' in entry.fields_dict:
                 self.logger.info(f"\tProceeding '{entry.fields_dict['booktitle'].value}' is hardcoded. Please extract it according to the template:{self._get_proceedings_template()}")
             
             # Remove all fields except the chosen ones, and reorder the fields according to the ordering of the chosen fields
-            chosen_fields = ['title', 'author', 'booktitle', 'journal', 'volume', 'number', 'pages', 'editors', 'crossref', 'year', 'note']
+            chosen_fields = ['title', 'author', 'editor', 'booktitle', 'crossref', 'journal', 'volume', 'number', 'pages', 'year', 'note']
             if 'crossref' in entry.fields_dict:
-                chosen_fields = [f for f in chosen_fields if f != 'year']
+                chosen_fields = [f for f in chosen_fields if f not in ['year', 'booktitle', 'journal']]
             removed_fields = [field.key for field in entry.fields if field.key not in chosen_fields]
             entry.fields = [entry.fields_dict[field] for field in chosen_fields if field in entry.fields_dict] # TODO remove year if crossref
             if len(removed_fields) > 0:
@@ -240,4 +244,4 @@ class BibTexCleaner:
 
 if __name__ == '__main__':
     nargs = len(sys.argv)
-    BibTexCleaner('files/references.bib', use_short='use_short' in sys.argv)
+    BibTexCleaner('files/references.bib', use_short='use_short' in sys.argv, replace_keys='replace_keys' in sys.argv)

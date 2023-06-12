@@ -25,6 +25,7 @@ pip install .
     python bibtex-cleaner/cleaner.py [use_short]
     ```
     * `use_short`: assumes proceedings to be in short form, loggs a warning if it is not the case.
+    * `replace_keys`: replaces the entry keys to match the right format
 3. Check `files/remarks.log` to know what has been changed and which fields need further manual adaptions.
 4. The cleaned bibtex file can be found at `files/references_cleaned.bib`.
 
