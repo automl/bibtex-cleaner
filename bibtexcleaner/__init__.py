@@ -1,7 +1,7 @@
 import datetime
 
-name = "bibtex-cleaner"
-package_name = "bibtex-cleaner"
+name = "bibtexcleaner"
+package_name = "bibtexcleaner"
 author = "Tanja Tornede"
 author_email = "t.tornede@ai.uni-hannover.de"
 description = "Rephrases BibTeX entries to match the formatting guidelines."

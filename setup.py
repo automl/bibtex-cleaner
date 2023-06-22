@@ -2,7 +2,7 @@ import os
 
 import setuptools
 
-from bibtex-cleaner import (
+from bibtexcleaner import (
     author,
     author_email,
     description,

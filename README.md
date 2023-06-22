@@ -1,4 +1,4 @@
-# bibtex-cleaner
+# bibtexcleaner
 
 Rephrases BibTeX entries to match the formatting guidelines. 
 
@@ -9,8 +9,8 @@ To this end, only a single file is supported. In case something is written in a 
 ```
 git clone https://github.com/automl-private/bibtex-cleaner
 cd bibtex-cleaner
-conda create -n bibtex-cleaner python=3.8
-conda activate bibtex-cleaner
+conda create -n bibtexcleaner python=3.8
+conda activate bibtexcleaner
 
 # Install for usage
 pip install --no-cache-dir --force-reinstall git+https://github.com/sciunto-org/python-bibtexparser@main
@@ -22,7 +22,7 @@ pip install .
 1. Past your bibtex file content into 'files/references.bib'.
 2. Execute `BibTexCleaner`:
     ```python 
-    python bibtex-cleaner/cleaner.py [use_short]
+    python bibtexcleaner/cleaner.py [use_short]
     ```
     * `use_short`: assumes proceedings to be in short form, loggs a warning if it is not the case.
     * `replace_keys`: replaces the entry keys to match the right format
