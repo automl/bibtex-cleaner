@@ -21,6 +21,40 @@ class BibTexCleaner:
         self._clean_entries()
         self._write()
     
+    @staticmethod
+    def _first_letter(word: str) -> str:
+        """Return the initial to abbreviate a given name with.
+
+        Handles names whose first letter is a LaTeX-escaped accented
+        character, e.g. "{\\'{A}}lvaro" (\u00c1lvaro), where `word[0]` would
+        otherwise return the opening brace instead of the letter.
+        """
+        if word.startswith('{'):
+            match = re.search(r'[A-Za-z]', word)
+            if match:
+                return match.group(0)
+        return word[0]
+
+    @staticmethod
+    def _is_literal_name(person: str) -> bool:
+        """Whether `person` is a whole name protected by one enclosing brace pair.
+
+        BibTeX authors wrap corporate/literal names in braces, e.g.
+        "{International Organization for Standardization}", to signal that
+        the name must not be split into first/last components.
+        """
+        if not (person.startswith('{') and person.endswith('}')):
+            return False
+        depth = 0
+        for i, ch in enumerate(person):
+            if ch == '{':
+                depth += 1
+            elif ch == '}':
+                depth -= 1
+                if depth == 0 and i != len(person) - 1:
+                    return False
+        return depth == 0
+
     def _setup_logger(self):
         self.logger = logging.getLogger('bibtext-cleaner')
         self.logger.setLevel(logging.DEBUG)
@@ -135,6 +169,10 @@ class BibTexCleaner:
                     if len(original_peoples) > 1 or len(original_peoples[0].split(' ')) > 1:
                         peoples = []
                         for original_person in original_peoples:
+                            original_person = original_person.strip()
+                            if self._is_literal_name(original_person):
+                                peoples.append(original_person)
+                                continue
                             if ',' in original_person:
                                 original_person = original_person.split(',')
                                 original_person = [original_person[-1].strip(), original_person[0].strip()]
@@ -144,7 +182,7 @@ class BibTexCleaner:
                                     if n>0 and '.' in name:
                                         original_person[n] = ''
                                 original_person = [x.strip() for x in original_person if x != '']
-                            peoples.append(' '.join([f"{original_person[0][0]}.",] + original_person[1:]))
+                            peoples.append(' '.join([f"{self._first_letter(original_person[0])}.",] + original_person[1:]))
                             
                         entry.fields_dict[people].value = ' and '.join(peoples)
                         self.logger.info(f"\tRephrased {people}: {entry.fields_dict[people].value}")
