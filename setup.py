@@ -42,16 +42,17 @@ setuptools.setup(
     project_urls=project_urls,
     version=version,
     packages=setuptools.find_packages(exclude=["tests"]),
-    python_requires=">=3.8",
+    python_requires=">=3.10",
     install_requires=[
         "numpy"
     ],
     extras_require=extras_require,
     platforms=["Linux"],
     classifiers=[
-        "Programming Language :: Python :: 3.8",
-        "Programming Language :: Python :: 3.9",
         "Programming Language :: Python :: 3.10",
+        "Programming Language :: Python :: 3.11",
+        "Programming Language :: Python :: 3.12",
+        "Programming Language :: Python :: 3.13",
         "Natural Language :: English",
         "Intended Audience :: Developers",
         "Intended Audience :: Education",
