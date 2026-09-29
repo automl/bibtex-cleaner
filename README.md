@@ -7,9 +7,9 @@ To this end, only a single file is supported. In case something is written in a 
 
 ## Installation
 ```
-git clone https://github.com/automl-private/bibtex-cleaner
+git clone https://github.com/automl/bibtex-cleaner
 cd bibtex-cleaner
-conda create -n bibtexcleaner python=3.8
+conda create -n bibtexcleaner python=3.10
 conda activate bibtexcleaner
 
 # Install for usage
