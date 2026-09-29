@@ -140,10 +140,8 @@ class BibTexCleaner:
                                 original_person = [original_person[-1].strip(), original_person[0].strip()]
                             else:
                                 original_person = original_person.split(' ')
-                                for n, name in enumerate(original_person):
-                                    if n>0 and '.' in name:
-                                        original_person[n] = ''
-                                original_person = [x.strip() for x in original_person if x != '']
+                                if len(original_person) > 1:
+                                    original_person = [original_person[0], original_person[-1]]
                             peoples.append(' '.join([f"{original_person[0][0]}.",] + original_person[1:]))
                             
                         entry.fields_dict[people].value = ' and '.join(peoples)
